@@ -1,0 +1,138 @@
+// Prisma Schema for NHEA Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id                     Int          @id @default(autoincrement())
+  name                   String
+  email                  String       @unique
+  password               String
+  role                   Role         @default(PUBLIC)
+  isVerified             Boolean      @default(false)
+  verificationCode       String?
+  verificationCodeExpiry DateTime?
+  createdAt              DateTime     @default(now())
+  
+  nominations            Nomination[] @relation("SubmittedNominations")
+  reviewedNominations    Nomination[] @relation("ReviewedNominations")
+  votes                  Vote[]
+  rsvp                   RSVP?
+  auditLogs              AuditLog[]
+
+  @@map("users")
+}
+
+enum Role {
+  PUBLIC
+  ADMIN
+}
+
+// Category Model
+model Category {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  
+  nominations Nomination[]
+  votes       Vote[]
+
+  @@map("categories")
+}
+
+// Nomination Model
+model Nomination {
+  id            Int              @id @default(autoincrement())
+  categoryId    Int
+  nomineeName   String
+  nomineeEmail  String
+  organization  String?
+  reason        String
+  status        NominationStatus @default(PENDING)
+  submittedById Int
+  reviewedById  Int?
+  reviewedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  
+  category      Category         @relation(fields: [categoryId], references: [id])
+  submittedBy   User             @relation("SubmittedNominations", fields: [submittedById], references: [id])
+  reviewedBy    User?            @relation("ReviewedNominations", fields: [reviewedById], references: [id])
+  votes         Vote[]
+
+  @@map("nominations")
+}
+
+enum NominationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Vote Model
+model Vote {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  categoryId   Int
+  nominationId Int
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+  
+  user         User       @relation(fields: [userId], references: [id])
+  category     Category   @relation(fields: [categoryId], references: [id])
+  nomination   Nomination @relation(fields: [nominationId], references: [id])
+
+  @@unique([userId, categoryId])
+  @@map("votes")
+}
+
+// Event Settings Model
+model EventSettings {
+  id                 Int       @id @default(autoincrement())
+  eventName          String    @default("NHEA 2025")
+  eventDate          DateTime?
+  votingStartDate    DateTime?
+  votingEndDate      DateTime?
+  votingEnabled      Boolean   @default(true)
+  resultsAnnounced   Boolean   @default(false)
+  venue              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@map("event_settings")
+}
+
+// RSVP Model
+model RSVP {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @unique
+  attending      Boolean
+  numberOfGuests Int      @default(1)
+  createdAt      DateTime @default(now())
+  
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@map("rsvps")
+}
+
+// Audit Log Model
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
